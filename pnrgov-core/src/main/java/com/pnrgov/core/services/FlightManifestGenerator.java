@@ -120,16 +120,14 @@ public class FlightManifestGenerator {
             );
 
             // Replace the generated flight with the reporting flight and update seat associations
-            Long oldFlightId = reservation.getFlights().isEmpty() ? null
-                    : reservation.getFlights().get(0).getId();
+            Flight oldFlight = reservation.getFlights().isEmpty() ? null : reservation.getFlights().get(0);
             reservation.getFlights().clear();
             reservation.getFlights().add(reportingFlight);
 
-            // Update all seat assignments to reference the reporting flight
-            final Long oldFlightIdFinal = oldFlightId;
+            // Update all seat assignments that reference the old flight to reference the reporting flight
             for (Passenger pax : reservation.getPassengers()) {
                 for (SeatAssignment seat : pax.getSeats()) {
-                    if (oldFlightIdFinal != null && oldFlightIdFinal.equals(seat.getFlightId())) {
+                    if (oldFlight != null && seat.getFlight() == oldFlight) {
                         seat.setFlight(reportingFlight);
                     }
                 }
