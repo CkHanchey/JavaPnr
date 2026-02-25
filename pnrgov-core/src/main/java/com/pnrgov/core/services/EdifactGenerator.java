@@ -5,7 +5,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.Random;
+import java.util.*;
 import java.util.stream.Collectors;
 
 /**
@@ -126,14 +126,29 @@ public class EdifactGenerator {
                 .append(SEGMENT_TERMINATOR).append("\n");
             
             // SSR - SEAT information for all passengers on this flight
-            String seatList = reservation.getPassengers().stream()
+            Map<Long, Integer> passengerIdToIndex = new HashMap<>();
+            int paxIdx = 1;
+            for (Passenger pax : reservation.getPassengers()) {
+                if (pax.getId() != null) passengerIdToIndex.put(pax.getId(), paxIdx);
+                paxIdx++;
+            }
+            Long fid = flight.getId();
+            List<SeatAssignment> seatsForFlight = reservation.getPassengers().stream()
                 .flatMap(p -> p.getSeats().stream())
-                .filter(s -> s.getFlight() != null && s.getFlight() == flight)
-                .map(SeatAssignment::getSeatNumber)
-                .collect(Collectors.joining(""));
-            
-            if (!seatList.isEmpty()) {
-                sb.append(generateSSR_SEAT(flight, reservation.getPassengers().size(), seatList)).append("\n");
+                .filter(s -> fid != null && fid.equals(s.getFlightId()))
+                .sorted(Comparator.comparingInt(s -> passengerIdToIndex.getOrDefault(s.getPassengerId(), 0)))
+                .collect(Collectors.toList());
+
+            if (!seatsForFlight.isEmpty()) {
+                StringBuilder seatListBuilder = new StringBuilder();
+                for (SeatAssignment seat : seatsForFlight) {
+                    int idx = passengerIdToIndex.getOrDefault(seat.getPassengerId(), 1);
+                    seatListBuilder.append(DATA_ELEMENT_SEPARATOR)
+                        .append(seat.getSeatNumber())
+                        .append(COMPONENT_SEPARATOR).append(COMPONENT_SEPARATOR)
+                        .append(idx);
+                }
+                sb.append(generateSSR_SEAT(flight, reservation.getPassengers().size(), seatListBuilder.toString())).append("\n");
             }
             
             // SSR - TKNE for tickets on this flight
@@ -248,7 +263,7 @@ public class EdifactGenerator {
                DATA_ELEMENT_SEPARATOR + flight.getDepartureAirport() +
                DATA_ELEMENT_SEPARATOR + flight.getArrivalAirport() +
                DATA_ELEMENT_SEPARATOR + operatingCode +
-               DATA_ELEMENT_SEPARATOR + opFlightNum + SEGMENT_TERMINATOR;
+               DATA_ELEMENT_SEPARATOR + opFlightNum + COMPONENT_SEPARATOR + flight.getServiceClass() + SEGMENT_TERMINATOR;
     }
 
     /**
@@ -288,7 +303,7 @@ public class EdifactGenerator {
             ? flight.getOperatingFlightNumber()
             : flight.getFlightNumber();
         return "TRA" + DATA_ELEMENT_SEPARATOR + flight.getOperatingCarrier() +
-               DATA_ELEMENT_SEPARATOR + opFlightNum + COMPONENT_SEPARATOR + flight.getServiceClass() + SEGMENT_TERMINATOR;
+               DATA_ELEMENT_SEPARATOR + opFlightNum + COMPONENT_SEPARATOR + "D" + SEGMENT_TERMINATOR;
     }
     
     private String generateTIF(Passenger passenger, int passengerIndex) {
@@ -366,12 +381,12 @@ public class EdifactGenerator {
     }
     
     private String generateSSR_SEAT(Flight flight, int passengerCount, String seatList) {
-        return "SSR" + DATA_ELEMENT_SEPARATOR + "SEAT" + COMPONENT_SEPARATOR + "DK" + COMPONENT_SEPARATOR + 
+        return "SSR" + DATA_ELEMENT_SEPARATOR + "SEAT" + COMPONENT_SEPARATOR + "HK" + COMPONENT_SEPARATOR +
                passengerCount +
                COMPONENT_SEPARATOR + flight.getAirlineCode() +
                COMPONENT_SEPARATOR + COMPONENT_SEPARATOR + COMPONENT_SEPARATOR +
                flight.getDepartureAirport() + COMPONENT_SEPARATOR + flight.getArrivalAirport() +
-               COMPONENT_SEPARATOR + "." + seatList + SEGMENT_TERMINATOR;
+               seatList + SEGMENT_TERMINATOR;
     }
     
     private String generateUNT(int segmentCount, String messageRef) {

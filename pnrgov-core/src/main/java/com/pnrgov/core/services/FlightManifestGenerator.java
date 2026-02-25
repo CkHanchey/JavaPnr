@@ -94,22 +94,47 @@ public class FlightManifestGenerator {
         List<Reservation> reservations = new ArrayList<>();
         for (int i = 0; i < pnrCount; i++) {
             int passengerCount = random.nextInt(4) + 1;
-            int flightCnt      = random.nextInt(3) + 1;
+            boolean includeCodeshare = random.nextInt(3) == 0; // Less frequent
+            boolean includeThruFlight = random.nextInt(3) == 0; // Less frequent
+            boolean includeBags = random.nextInt(2) == 0;
+            boolean includeSeats = random.nextInt(2) == 0;
+            boolean includeDocuments = random.nextInt(2) == 0;
+            boolean includePayment = random.nextInt(2) == 0;
+            boolean includePhoneNumbers = random.nextInt(2) == 0;
+            boolean includeAgencyInfo = random.nextInt(2) == 0;
+            boolean includeCreditCard = includePayment && random.nextInt(2) == 0;
+
+            // For manifests, generate only 1 flight which will be replaced by reporting flight
             Reservation reservation = sampleDataGenerator.generateRandomReservation(
                     passengerCount,
-                    flightCnt,
-                    random.nextInt(2) == 0,   // includeBags
-                    random.nextInt(2) == 0,   // includeSeats
-                    true,                     // includeDocuments (always)
-                    random.nextInt(2) == 0,   // includePayment
-                    false,                    // includeCodeshare
-                    false,                    // includeThruFlight
-                    true,                     // includePhoneNumbers
-                    true,                     // includeAgencyInfo
-                    false                     // includeCreditCard
+                    1,                  // flightCount: always 1, replaced by reporting flight
+                    includeBags,
+                    includeSeats,
+                    includeDocuments,
+                    includePayment,
+                    includeCodeshare,
+                    includeThruFlight,
+                    includePhoneNumbers,
+                    includeAgencyInfo,
+                    includeCreditCard
             );
-            // Prepend the reporting flight to each PNR
-            reservation.getFlights().add(0, reportingFlight);
+
+            // Replace the generated flight with the reporting flight and update seat associations
+            Long oldFlightId = reservation.getFlights().isEmpty() ? null
+                    : reservation.getFlights().get(0).getId();
+            reservation.getFlights().clear();
+            reservation.getFlights().add(reportingFlight);
+
+            // Update all seat assignments to reference the reporting flight
+            final Long oldFlightIdFinal = oldFlightId;
+            for (Passenger pax : reservation.getPassengers()) {
+                for (SeatAssignment seat : pax.getSeats()) {
+                    if (oldFlightIdFinal != null && oldFlightIdFinal.equals(seat.getFlightId())) {
+                        seat.setFlight(reportingFlight);
+                    }
+                }
+            }
+
             reservations.add(reservation);
         }
 
@@ -219,10 +244,18 @@ public class FlightManifestGenerator {
             passengerIndex++;
         }
 
-        // TVL + RPI + APD + SSR SEAT per flight
+        // TVL + RPI + APD + SSR SEAT + SSR TKNE + RCI per flight
         List<Flight> sortedFlightsForTVL = reservation.getFlights().stream()
                 .sorted(Comparator.comparingInt(f -> f.getSegmentNumber() != null ? f.getSegmentNumber() : 0))
                 .collect(Collectors.toList());
+
+        // Build passenger ID to index map for proper seat ordering
+        Map<Long, Integer> passengerIdToIndex = new HashMap<>();
+        int pIdx = 1;
+        for (Passenger p : reservation.getPassengers()) {
+            if (p.getId() != null) passengerIdToIndex.put(p.getId(), pIdx);
+            pIdx++;
+        }
 
         for (Flight flight : sortedFlightsForTVL) {
             // TVL – Flight segment
@@ -241,16 +274,35 @@ public class FlightManifestGenerator {
             final Flight currentFlight = flight;
             List<SeatAssignment> seatsForFlight = reservation.getPassengers().stream()
                     .flatMap(p -> p.getSeats().stream())
-                    .filter(s -> currentFlight.getId() != null
-                            && currentFlight.getId().equals(s.getFlightId()))
+                    .filter(s -> {
+                        if (currentFlight.getId() != null)
+                            return currentFlight.getId().equals(s.getFlightId());
+                        return s.getFlight() == currentFlight; // unpersisted flight: use reference equality
+                    })
+                    .sorted(Comparator.comparingInt(s -> passengerIdToIndex.getOrDefault(s.getPassengerId(), 0)))
                     .collect(Collectors.toList());
 
             if (!seatsForFlight.isEmpty()) {
-                String seatList = seatsForFlight.stream()
-                        .map(SeatAssignment::getSeatNumber)
-                        .collect(Collectors.joining());
-                sb.append(generateSSR_SEAT(flight, reservation.getPassengers().size(), seatList)).append("\n");
+                StringBuilder seatListBuilder = new StringBuilder();
+                for (SeatAssignment seat : seatsForFlight) {
+                    int seatPaxIdx = passengerIdToIndex.getOrDefault(seat.getPassengerId(), 1);
+                    seatListBuilder.append(DATA_ELEMENT_SEPARATOR)
+                            .append(seat.getSeatNumber())
+                            .append(COMPONENT_SEPARATOR).append(COMPONENT_SEPARATOR)
+                            .append(seatPaxIdx);
+                }
+                sb.append(generateSSR_SEAT(flight, reservation.getPassengers().size(), seatListBuilder.toString())).append("\n");
             }
+
+            // SSR TKNE – Ticket number for each passenger on this flight
+            int ssrPaxIndex = 1;
+            for (Passenger passenger : reservation.getPassengers()) {
+                sb.append(generateSSR_TKNE_Simple(flight, ssrPaxIndex)).append("\n");
+                ssrPaxIndex++;
+            }
+
+            // RCI – Record locator after each flight
+            sb.append(generateRCI(reservation, airlineCode)).append("\n");
         }
 
         return sb.toString();
@@ -374,7 +426,7 @@ public class FlightManifestGenerator {
         String date = transactionDate.format(DATE_FMT);
         String time = transactionDate.format(TIME_FMT);
         return "DAT" + DATA_ELEMENT_SEPARATOR + "700"
-                + DATA_ELEMENT_SEPARATOR + date + COMPONENT_SEPARATOR + time + SEGMENT_TERMINATOR;
+                + COMPONENT_SEPARATOR + date + COMPONENT_SEPARATOR + time + SEGMENT_TERMINATOR;
     }
 
     private String generateSSR_DOCS(TravelDocument document, Passenger passenger, int passengerIndex) {
@@ -411,13 +463,23 @@ public class FlightManifestGenerator {
                 + SEGMENT_TERMINATOR;
     }
 
+    private String generateSSR_TKNE_Simple(Flight flight, int passengerIndex) {
+        String ticketNumber = "139" + (random.nextInt(9000000) + 1000000) + "000C1";
+        return "SSR" + DATA_ELEMENT_SEPARATOR + "TKNE" + COMPONENT_SEPARATOR + "HK"
+                + COMPONENT_SEPARATOR + "1"
+                + COMPONENT_SEPARATOR + flight.getAirlineCode()
+                + COMPONENT_SEPARATOR + COMPONENT_SEPARATOR + COMPONENT_SEPARATOR
+                + flight.getDepartureAirport() + COMPONENT_SEPARATOR + flight.getArrivalAirport()
+                + COMPONENT_SEPARATOR + "." + ticketNumber + SEGMENT_TERMINATOR;
+    }
+
     private String generateSSR_SEAT(Flight flight, int passengerCount, String seatList) {
-        return "SSR" + DATA_ELEMENT_SEPARATOR + "SEAT" + COMPONENT_SEPARATOR + "DK"
+        return "SSR" + DATA_ELEMENT_SEPARATOR + "SEAT" + COMPONENT_SEPARATOR + "HK"
                 + COMPONENT_SEPARATOR + passengerCount
                 + COMPONENT_SEPARATOR + flight.getAirlineCode()
                 + COMPONENT_SEPARATOR + COMPONENT_SEPARATOR + COMPONENT_SEPARATOR
                 + flight.getDepartureAirport() + COMPONENT_SEPARATOR + flight.getArrivalAirport()
-                + COMPONENT_SEPARATOR + "." + seatList + SEGMENT_TERMINATOR;
+                + seatList + SEGMENT_TERMINATOR;
     }
 
     // ── Trailer segments ─────────────────────────────────────────────────────
