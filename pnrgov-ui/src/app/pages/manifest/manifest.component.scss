@@ -1,0 +1,17 @@
+/* Manifest Component Specific Styles */
+/* Most styles are in global styles.scss */
+
+@media print {
+  nav, .btn, .edifact-output {
+    display: none !important;
+  }
+  
+  .card {
+    box-shadow: none;
+    border: none;
+  }
+  
+  body {
+    background: white;
+  }
+}

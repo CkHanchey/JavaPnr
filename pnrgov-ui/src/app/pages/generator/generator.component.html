@@ -1,0 +1,44 @@
+<div class="card">
+  <h1>EDIFACT Generator</h1>
+  <p style="color: #666; margin-bottom: 30px;">
+    Generate PAXLST EDIFACT messages with random passenger data for government reporting.
+  </p>
+
+  <button 
+    class="btn btn-primary" 
+    (click)="generateEdifact()" 
+    [disabled]="loading">
+    <span *ngIf="loading" class="loading"></span>
+    <span *ngIf="!loading">Generate EDIFACT Message</span>
+  </button>
+
+  <div *ngIf="error" class="error-message">
+    {{ error }}
+  </div>
+
+  <div *ngIf="response" style="margin-top: 30px;">
+    <div class="success-message">
+      <strong>Success!</strong> EDIFACT message generated for record locator: 
+      <strong>{{ response.recordLocator }}</strong>
+    </div>
+
+    <div style="display: flex; gap: 10px; margin: 20px 0;">
+      <button class="btn btn-secondary" (click)="copyToClipboard()">
+        📋 Copy to Clipboard
+      </button>
+      <button class="btn btn-secondary" (click)="downloadEdifact()">
+        💾 Download
+      </button>
+    </div>
+
+    <h3>EDIFACT Content:</h3>
+    <div class="edifact-output">{{ response.edifactContent }}</div>
+
+    <div style="margin-top: 20px; padding: 15px; background: #f8f9fa; border-radius: 8px;">
+      <p><strong>Generated At:</strong> {{ response.generatedAt | date:'medium' }}</p>
+      <p style="margin-top: 10px; color: #666; font-size: 14px;">
+        This message can be transmitted to government authorities for passenger screening and customs clearance.
+      </p>
+    </div>
+  </div>
+</div>

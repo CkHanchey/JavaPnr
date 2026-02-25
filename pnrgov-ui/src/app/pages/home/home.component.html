@@ -1,0 +1,38 @@
+<div class="card">
+  <h1>Welcome to PNR Gov</h1>
+  <p style="font-size: 18px; color: #666; margin-bottom: 30px;">
+    A comprehensive flight manifest and EDIFACT message generator for government reporting requirements.
+  </p>
+
+  <h2>Features</h2>
+  <div class="feature-grid">
+    <div class="feature-item" *ngFor="let feature of features">
+      <h3>{{ feature.title }}</h3>
+      <p>{{ feature.description }}</p>
+    </div>
+  </div>
+
+  <h2 style="margin-top: 40px;">Technology Stack</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Component</th>
+        <th>Technology</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr *ngFor="let tech of techStack">
+        <td><strong>{{ tech.name }}</strong></td>
+        <td>{{ tech.value }}</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div style="margin-top: 40px; text-align: center;">
+    <p style="color: #666; margin-bottom: 20px;">Get started by generating your first EDIFACT message or flight manifest</p>
+    <div style="display: flex; gap: 20px; justify-content: center;">
+      <a routerLink="/generator" class="btn btn-primary">Generate EDIFACT</a>
+      <a routerLink="/manifest" class="btn btn-secondary">Generate Manifest</a>
+    </div>
+  </div>
+</div>

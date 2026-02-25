@@ -1,0 +1,69 @@
+<div class="card">
+  <h1>Flight Manifest Generator</h1>
+  <p style="color: #666; margin-bottom: 30px;">
+    Generate comprehensive flight manifests with passenger details, documents, and seat assignments.
+  </p>
+
+  <button 
+    class="btn btn-primary" 
+    (click)="generateManifest()" 
+    [disabled]="loading">
+    <span *ngIf="loading" class="loading"></span>
+    <span *ngIf="!loading">Generate Flight Manifest</span>
+  </button>
+
+  <div *ngIf="error" class="error-message">
+    {{ error }}
+  </div>
+
+  <div *ngIf="response" style="margin-top: 30px;">
+    <div class="success-message">
+      <strong>Success!</strong> Flight manifest generated with <strong>{{ response.passengerCount }}</strong> passengers.
+    </div>
+
+    <div style="display: flex; gap: 10px; margin: 20px 0;">
+      <button class="btn btn-secondary" (click)="printManifest()">
+        🖨️ Print Manifest
+      </button>
+      <button class="btn btn-secondary" (click)="downloadManifest()">
+        💾 Download EDIFACT
+      </button>
+    </div>
+
+    <h2>Passenger List</h2>
+    <div *ngIf="passengers.length > 0">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Passenger Name</th>
+            <th>Document Type</th>
+            <th>Document Number</th>
+            <th>Nationality</th>
+            <th>Seat</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let passenger of passengers; let i = index">
+            <td>{{ i + 1 }}</td>
+            <td>{{ passenger.name }}</td>
+            <td>{{ passenger.documentType }}</td>
+            <td>{{ passenger.documentNumber }}</td>
+            <td>{{ passenger.nationality }}</td>
+            <td>{{ passenger.seatNumber }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3 style="margin-top: 30px;">Raw EDIFACT Content:</h3>
+    <div class="edifact-output">{{ response.edifactContent }}</div>
+
+    <div style="margin-top: 20px; padding: 15px; background: #f8f9fa; border-radius: 8px;">
+      <p><strong>Generated At:</strong> {{ response.generatedAt | date:'medium' }}</p>
+      <p style="margin-top: 10px; color: #666; font-size: 14px;">
+        This manifest contains all passenger information required for customs and border control.
+      </p>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,14 @@
+<nav>
+  <div class="container">
+    <div class="logo">✈️ PNR Gov</div>
+    <ul>
+      <li><a routerLink="/" routerLinkActive="active" [routerLinkActiveOptions]="{exact: true}">Home</a></li>
+      <li><a routerLink="/generator" routerLinkActive="active">EDIFACT Generator</a></li>
+      <li><a routerLink="/manifest" routerLinkActive="active">Manifest Generator</a></li>
+    </ul>
+  </div>
+</nav>
+
+<div class="container">
+  <router-outlet></router-outlet>
+</div>
