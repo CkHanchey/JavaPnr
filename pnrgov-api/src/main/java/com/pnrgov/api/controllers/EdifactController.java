@@ -37,10 +37,12 @@ public class EdifactController {
     }
 
     @GetMapping("/generate/{reservationId}")
-    public ResponseEntity<EdifactResponse> generateEdifactById(@PathVariable Long reservationId) {
+    public ResponseEntity<EdifactResponse> generateEdifactById(
+            @PathVariable Long reservationId,
+            @RequestParam(defaultValue = "USCBP") String receiver) {
         return reservationRepository.findById(reservationId)
                 .map(reservation -> {
-                    String edifactContent = edifactGenerator.generatePnrGov(reservation, "USCBP");
+                    String edifactContent = edifactGenerator.generatePnrGov(reservation, receiver);
                     return ResponseEntity.ok(EdifactResponse.builder()
                             .reservationId(reservation.getId())
                             .recordLocator(reservation.getRecordLocator())
@@ -52,14 +54,18 @@ public class EdifactController {
     }
 
     @GetMapping("/download/{reservationId}")
-    public ResponseEntity<byte[]> downloadEdifact(@PathVariable Long reservationId) {
+    public ResponseEntity<byte[]> downloadEdifact(
+            @PathVariable Long reservationId,
+            @RequestParam(defaultValue = "USCBP") String receiver) {
         return reservationRepository.findById(reservationId)
                 .map(reservation -> {
-                    String edifactContent = edifactGenerator.generatePnrGov(reservation, "USCBP");
+                    String edifactContent = edifactGenerator.generatePnrGov(reservation, receiver);
+                    String fileName = "PNRGOV_" + reservation.getRecordLocator()
+                            + "_" + LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMddHHmmss")) + ".edi";
                     byte[] bytes = edifactContent.getBytes();
                     return ResponseEntity.ok()
                             .header(HttpHeaders.CONTENT_DISPOSITION,
-                                    "attachment; filename=\"" + reservation.getRecordLocator() + ".edi\"")
+                                    "attachment; filename=\"" + fileName + "\"")
                             .contentType(MediaType.TEXT_PLAIN)
                             .body(bytes);
                 })

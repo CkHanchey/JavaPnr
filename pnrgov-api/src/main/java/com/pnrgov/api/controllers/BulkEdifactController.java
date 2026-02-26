@@ -28,14 +28,22 @@ public class BulkEdifactController {
     }
     
     @PostMapping("/generate")
-    public ResponseEntity<BulkGenerationResponse> generateBulk(@RequestBody BulkGenerationRequest request) {
+    public ResponseEntity<?> generateBulk(@RequestBody BulkGenerationRequest request) {
         // Validation
-        if (request.getFileCount() < 1 || request.getFileCount() > 1000
-                || request.getMinPassengers() < 1 || request.getMaxPassengers() > 20
-                || request.getMinFlights() < 1 || request.getMaxFlights() > 10
-                || request.getMinPassengers() > request.getMaxPassengers()
-                || request.getMinFlights() > request.getMaxFlights()) {
-            return ResponseEntity.badRequest().build();
+        if (request.getFileCount() < 1 || request.getFileCount() > 1000) {
+            return ResponseEntity.badRequest().body("File count must be between 1 and 1000");
+        }
+        if (request.getMinPassengers() < 1 || request.getMaxPassengers() > 20) {
+            return ResponseEntity.badRequest().body("Passenger range must be between 1 and 20");
+        }
+        if (request.getMinFlights() < 1 || request.getMaxFlights() > 10) {
+            return ResponseEntity.badRequest().body("Flight range must be between 1 and 10");
+        }
+        if (request.getMinPassengers() > request.getMaxPassengers()) {
+            return ResponseEntity.badRequest().body("MinPassengers cannot be greater than MaxPassengers");
+        }
+        if (request.getMinFlights() > request.getMaxFlights()) {
+            return ResponseEntity.badRequest().body("MinFlights cannot be greater than MaxFlights");
         }
         
         List<GeneratedFile> files = new ArrayList<>();

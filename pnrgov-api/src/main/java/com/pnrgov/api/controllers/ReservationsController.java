@@ -56,22 +56,22 @@ public class ReservationsController {
      * Update an existing reservation
      */
     @PutMapping("/{id}")
-    public ResponseEntity<Reservation> updateReservation(
-            @PathVariable Long id, 
+    public ResponseEntity<Void> updateReservation(
+            @PathVariable Long id,
             @RequestBody Reservation reservation) {
-        
+
         if (!id.equals(reservation.getId())) {
             return ResponseEntity.badRequest().build();
         }
-        
+
         if (!reservationRepository.existsById(id)) {
             return ResponseEntity.notFound().build();
         }
-        
-        Reservation updatedReservation = reservationRepository.save(reservation);
-        return ResponseEntity.ok(updatedReservation);
+
+        reservationRepository.save(reservation);
+        return ResponseEntity.noContent().build();
     }
-    
+
     /**
      * Delete a reservation
      */
